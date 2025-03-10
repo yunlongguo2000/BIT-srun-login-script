@@ -1,4 +1,3 @@
 .vscode/
-*.pid
-*.log
+
 *.pyc
