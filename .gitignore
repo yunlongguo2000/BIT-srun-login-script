@@ -2,3 +2,7 @@
 *.pid
 *.log
 *.pyc
+build/*
+dist/*
+*.spec
+__pycache__/*
