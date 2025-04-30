@@ -39,6 +39,6 @@ def always_login(checkinterval=1, testip='114.114.114.114', path='./srun-linux')
                 pass
 
 if __name__ == "__main__":
-    path = '/home/fzh/srun_login/srun-linux'
+    path = '/home/yunlong/BIT-srun-login-script/srun-linux'
     test_ip = '114.114.114.114'
     always_login(checkinterval=1, testip=test_ip, path=path)
