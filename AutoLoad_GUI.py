@@ -5,11 +5,25 @@ from tkinter import ttk, messagebox
 from AutoLoad import write_pid_file
 from selenium.common.exceptions import WebDriverException
 import ctypes
+import sys
+import queue
 
 # 全局标志位，用于控制 loopLoad 的运行状态
 running_flag = threading.Event()
 
-def loopLoad_with_flag(usrname, passwd, browserChoice='firefox'):
+class RedirectOutput:
+    """将标准输出重定向到 Tkinter Text 小部件"""
+    def __init__(self, text_widget, queue):
+        self.text_widget = text_widget
+        self.queue = queue
+
+    def write(self, message):
+        self.queue.put(message)
+
+    def flush(self):
+        pass
+
+def loopLoad_with_flag(usrname, passwd, browserChoice='firefox', output_queue=None):
     """带有运行标志位的 loopLoad"""
     from selenium import webdriver
     from selenium.webdriver.common.by import By
@@ -36,7 +50,7 @@ def loopLoad_with_flag(usrname, passwd, browserChoice='firefox'):
 
             try:
                 if el("logout"):
-                    print("Bit-Web still OK!")
+                    output_queue.put("Bit-Web still OK!\n")
                     browser.close()
                     time.sleep(random.randint(3, 7))
                     continue
@@ -47,12 +61,12 @@ def loopLoad_with_flag(usrname, passwd, browserChoice='firefox'):
                 el("password").send_keys(passwd)
                 el("login").click()
                 time.sleep(2)
-                print("Bit-Web OK!")
+                output_queue.put("Bit-Web OK!\n")
 
         except WebDriverException as e:
-            print("WebDriver Error:", e)
+            output_queue.put(f"WebDriver Error: {e}\n")
         except Exception as e:
-            print("Error:", e)
+            output_queue.put(f"Error: {e}\n")
         finally:
             try:
                 browser.close()
@@ -65,7 +79,7 @@ class AutoLoadApp:
     def __init__(self, root):
         self.root = root
         self.root.title("BIT-Web AutoLogin")
-        self.root.geometry("400x300")
+        self.root.geometry("600x400")
         self.root.resizable(False, False)
 
         # 用户名输入
@@ -82,7 +96,7 @@ class AutoLoadApp:
         tk.Label(root, text="选择浏览器:").grid(row=2, column=0, padx=10, pady=10, sticky="e")
         self.browser_choice = ttk.Combobox(root, values=["Firefox", "Chrome"], state="readonly", width=28)
         self.browser_choice.grid(row=2, column=1, padx=10, pady=10)
-        self.browser_choice.current(0)
+        self.browser_choice.current(1)
 
         # 启动和停止按钮
         self.start_button = tk.Button(root, text="启动", command=self.start_autoload, width=15)
@@ -95,7 +109,28 @@ class AutoLoadApp:
         self.status_label = tk.Label(root, text="状态: 未启动", fg="red")
         self.status_label.grid(row=4, column=0, columnspan=2, pady=10)
 
+        # 输出显示框
+        self.output_text = tk.Text(root, height=10, width=70, state="disabled")
+        self.output_text.grid(row=5, column=0, columnspan=2, padx=10, pady=10)
+
+        # 创建队列用于线程间通信
+        self.output_queue = queue.Queue()
+
+        # 重定向标准输出
+        sys.stdout = RedirectOutput(self.output_text, self.output_queue)
+
         self.autoload_thread = None
+        self.update_output()
+
+    def update_output(self):
+        """从队列中获取消息并显示到文本框"""
+        while not self.output_queue.empty():
+            message = self.output_queue.get_nowait()
+            self.output_text.config(state="normal")
+            self.output_text.insert(tk.END, message)
+            self.output_text.see(tk.END)
+            self.output_text.config(state="disabled")
+        self.root.after(100, self.update_output)
 
     def start_autoload(self):
         username = self.username_entry.get()
@@ -114,7 +149,7 @@ class AutoLoadApp:
         self.status_label.config(text="状态: 运行中", fg="green")
 
         # 启动线程运行 loopLoad_with_flag
-        self.autoload_thread = threading.Thread(target=loopLoad_with_flag, args=(username, password, browser))
+        self.autoload_thread = threading.Thread(target=loopLoad_with_flag, args=(username, password, browser, self.output_queue))
         self.autoload_thread.daemon = True
         self.autoload_thread.start()
 
