@@ -7,6 +7,14 @@ def is_connect_internet(testip):
     # Windows 下用 -n，Linux 下用 -c
     param = '-n' if os.name == 'nt' else '-c'
     status = os.system(f"ping {param} 8 {testip}")
+    # 使用 subprocess.call 来执行 ping 命令，不显示输出
+    # with open(os.devnull, 'w') as DEVNULL:
+    #     status = subprocess.call(
+    #         f"ping {param} 8 {testip}",
+    #         shell=True,
+    #         stdout=DEVNULL,
+    #         stderr=DEVNULL
+    #     )
     return status == 0
 
 def main1(path):
